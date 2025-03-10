@@ -12,4 +12,4 @@ const users = [
     name: "Bob",
   },
 ];
-module.exports = { users };
+module.exports = users;

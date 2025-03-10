@@ -1,58 +1,34 @@
 const express = require("express");
-const moment = require("moment");
-const morgan = require("morgan"); // Tambahkan morgan
-const { users } = require("./users");
-
+const morgan = require("morgan");
+const cors = require("cors");
+const path = require("path");
+const routers = require("./routers"); // Mengimpor routers.js
 const app = express();
-const hostname = "127.0.0.1";
-const port = 3000;
 
-// Middleware untuk logging dengan morgan
+// Middleware Log
 app.use(morgan("tiny"));
 
-// Route untuk home page
-app.get("/", (req, res) => {
-  res.status(200).send("This is the home page");
-});
+// Middleware Body Parser (JSON)
+app.use(express.json()); // Untuk parsing JSON di request body
 
-// Route untuk about page
-app.get("/about", (req, res) => {
-  res.status(200).json({
-    status: "success",
-    message: "Response Success",
-    description: "Exercise #04",
-    date: moment().format(),
-  });
-});
+// Middleware CORS
+app.use(cors({ origin: "http://127.0.0.1:5500" })); // Menangani CORS
 
-// Route untuk mendapatkan semua data users
-app.get("/users", (req, res) => {
-  res.status(200).json(users);
-});
+// Middleware untuk Akses File Statis
+app.use(express.static(path.join(__dirname, "public"))); // Akses file statis dari folder 'public'
 
-// Route untuk mendapatkan data user berdasarkan nama (case-insensitive)
-app.get("/users/:name", (req, res) => {
-  const name = req.params.name.toLowerCase(); // Ubah ke lowercase untuk case-insensitive
-  const user = users.find((u) => u.name.toLowerCase() === name);
+// Gunakan router.js untuk menangani rute-rute yang ada
+app.use(routers);
 
-  if (user) {
-    res.status(200).json(user);
-  } else {
-    res.status(404).json({
-      message: "data user tidak ditemukan",
-    });
-  }
-});
-
-// Route untuk penanganan 404 (tidak ditemukan)
-app.get("/:id", (req, res) => {
+// Penanganan Routing 404
+app.use((req, res) => {
   res.status(404).json({
     status: "error",
     message: "resource tidak ditemukan",
   });
 });
 
-// Penanganan error sederhana
+// Penanganan Error
 app.use((err, req, res, next) => {
   console.error(err); // Log error ke console
   res.status(500).json({
@@ -61,6 +37,8 @@ app.use((err, req, res, next) => {
   });
 });
 
+const hostname = "127.0.0.1";
+const port = 3000;
 app.listen(port, hostname, () => {
   console.log(`Server running at http://${hostname}:${port}`);
 });
