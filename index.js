@@ -1,24 +1,47 @@
 const http = require("http");
-const {hello, greetings} = require("./helloWorld")
-const moment = require('moment')
+const { hello, greetings } = require("./helloWorld");
+const moment = require("moment");
+const express = require("express");
+const morgan = require("morgan");
+// const errorhandler = require("errorhandler");
+const app = express();
+const routers = require("./routers");
+const path = require("path");
+const cors = require("cors");
 
-const server = http.createServer((req, res) => {
-  res.statusCode = 200;
-  res.setHeader("Connotent-Type", "text/plain");
-  // res.write(hello);
-  // res.write(greetings());
-  res.write(
-    JSON.stringify({
-      status: "success",
-      message: "Hello World",
-    })
-  )
-  res.write(moment().format('MMMM Do YYYY, h:mm:ss a'));
-  res.end();
+//Middleware
+const log = (req, res, next) => {
+  console.log(
+    moment().format("h:mm:ss a") + " " + req.originalUrl + " " + req.ip
+  );
+  next();
+};
+
+app.use(morgan("tiny"));
+// app.use(errorhandler);
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+app.use(express.static(path.join(__dirname, "public")));
+app.use(
+  cors({
+    origin: "http://127.0.0.1:5500",
+    methods: ["GET", "POST"],
+  })
+);
+
+//Routing
+app.use(routers);
+
+//Middleware untuk 404
+app.use((req, res, next) => {
+  res.status(404).json({
+    status: "error",
+    message: "resource tidak ditemukan",
+  });
 });
 
 const hostname = "127.0.0.1";
 const port = 3000;
-server.listen(port, hostname, () => {
-  console.log(`Server Running at http://${hostname}:${port}/`);
-});
+app.listen(port, hostname, () =>
+  console.log(`Server running at http://${hostname}:${port}`)
+);
