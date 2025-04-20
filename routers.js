@@ -69,7 +69,7 @@ routers.get("/users/:id", async (req, res) => {
 routers.post("/users", async (req, res) => {
   try {
     const db = client.db("latihan");
-    const { name, email } = req.body; // Ambil data dari request body
+    const { name, email } = req.body;
 
     // Validasi input
     if (!name || !email) {
@@ -86,7 +86,7 @@ routers.post("/users", async (req, res) => {
     res.status(201).json({
       status: "success",
       message: "User berhasil ditambahkan",
-      data: result.ops[0], // Data user yang baru ditambahkan
+      data: result.ops[0],
     });
   } catch (error) {
     // Penanganan error
@@ -99,45 +99,33 @@ routers.post("/users", async (req, res) => {
 });
 
 // Routing untuk update user berdasarkan ID
-routers.put("/users/:id", async (req, res) => {
+// update user
+routers.patch("/users/:id", async (req, res) => {
   try {
     const db = client.db("latihan");
-    const { id } = req.params; // Ambil ID dari parameter URL
-    const { name, email } = req.body; // Ambil data dari request body
-    const ObjectId = require("mongodb").ObjectId;
-
-    // Validasi input
-    if (!name || !email) {
-      return res.status(400).json({
-        status: "error",
-        message: "Name dan email harus diisi",
-      });
-    }
-
-    // Update data di MongoDB
-    const result = await db.collection("users").updateOne(
-      { _id: new ObjectId(id) }, // Filter berdasarkan ID
-      { $set: { name, email } } // Data yang akan diupdate
+    const user = await db.collection("users").updateOne(
+      { _id: new ObjectId(req.params.id) },
+      {
+        $set: req.body,
+      }
     );
 
-    // Periksa apakah user ditemukan dan diupdate
-    if (result.matchedCount === 0) {
-      return res.status(404).json({
+    if (user.modifiedCount > 0) {
+      res.status(200).json({
+        status: "success",
+        message: "Update User",
+        data: user,
+      });
+    } else {
+      res.status(404).json({
         status: "error",
-        message: "User tidak ditemukan",
+        message: "User not found or no changes made",
       });
     }
-
-    res.status(200).json({
-      status: "success",
-      message: "User berhasil diperbarui",
-    });
   } catch (error) {
-    // Penanganan error
     res.status(500).json({
       status: "error",
-      message: "Terjadi kesalahan saat memperbarui user",
-      error: error.message,
+      message: "Failed to update user",
     });
   }
 });
@@ -146,15 +134,13 @@ routers.put("/users/:id", async (req, res) => {
 routers.delete("/users/:id", async (req, res) => {
   try {
     const db = client.db("latihan");
-    const { id } = req.params; // Ambil ID dari parameter URL
+    const { id } = req.params;
     const ObjectId = require("mongodb").ObjectId;
 
-    // Hapus data di MongoDB
     const result = await db
       .collection("users")
       .deleteOne({ _id: new ObjectId(id) });
 
-    // Periksa apakah user ditemukan dan dihapus
     if (result.deletedCount === 0) {
       return res.status(404).json({
         status: "error",
@@ -167,7 +153,6 @@ routers.delete("/users/:id", async (req, res) => {
       message: "User berhasil dihapus",
     });
   } catch (error) {
-    // Penanganan error
     res.status(500).json({
       status: "error",
       message: "Terjadi kesalahan saat menghapus user",
@@ -177,62 +162,62 @@ routers.delete("/users/:id", async (req, res) => {
 });
 
 // Routing untuk mendapatkan order user (join/aggregate)
-routers.get("/users/:id/orders", async (req, res) => {
+routers.get("/order/user/:id", async (req, res) => {
   try {
-    const db = client.db("latihan");
-    const { id } = req.params; // Ambil ID user dari parameter URL
-    const ObjectId = require("mongodb").ObjectId;
+    const { id } = req.params;
 
-    // Validasi apakah ID valid
     if (!ObjectId.isValid(id)) {
       return res.status(400).json({
         status: "error",
-        message: "ID tidak valid",
+        message: "Invalid user ID",
       });
     }
 
-    // Gunakan aggregation untuk join antara koleksi users dan orders
+    const db = client.db("latihan");
+
     const orders = await db
-      .collection("orders")
+      .collection("order")
       .aggregate([
         {
-          $match: { userId: new ObjectId(id) }, // Filter berdasarkan userId
-        },
-        {
-          $lookup: {
-            from: "users", // Koleksi yang akan di-join
-            localField: "userId", // Field di koleksi orders
-            foreignField: "_id", // Field di koleksi users
-            as: "userDetails", // Nama field hasil join
+          $match: {
+            UserId: new ObjectId(id),
           },
         },
         {
-          $unwind: "$userDetails", // Mengurai array hasil join menjadi objek
+          $lookup: {
+            from: "users",
+            localField: "UserId",
+            foreignField: "_id",
+            as: "user_info",
+          },
+        },
+        {
+          $unwind: "$user_info",
+        },
+        {
+          $project: {
+            _id: 1,
+            product: 1,
+            price: 1,
+            "user_info._id": 1,
+            "user_info.name": 1,
+            "user_info.age": 1,
+            "user_info.status": 1,
+          },
         },
       ])
       .toArray();
 
-    // Periksa apakah ada order untuk user tersebut
-    if (orders.length === 0) {
-      return res.status(404).json({
-        status: "error",
-        message: "Order untuk user tidak ditemukan",
-      });
-    }
-
-    // Kirim respons sukses
     res.status(200).json({
       status: "success",
-      message: "Order user berhasil diambil",
+      message: "Get Order by User",
       data: orders,
     });
   } catch (error) {
-    // Penanganan error
-    console.error("Error:", error); // Log error untuk debugging
+    console.error(error);
     res.status(500).json({
       status: "error",
-      message: "Terjadi kesalahan saat mengambil order user",
-      error: error.message,
+      message: "Failed to get order user",
     });
   }
 });
